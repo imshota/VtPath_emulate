@@ -19,8 +19,7 @@ int f(int arg){
   }
 
   printf("befor input : mode = %d\n", mode);
-  // ここでオーバーフローさせ、modeの値を書き換える
-  scanf("%s", input);
+  scanf("%s", input); // ここでオーバーフローさせ、modeの値を書き換える
   printf("after input : mode = %d\n", mode);
 
   int fcheck;
@@ -46,7 +45,7 @@ int f(int arg){
       return 0;
     }
     password[5] = '\0';
-    //reverse(begin(password), end(password));
+    reverse(begin(password), end(password));
     fclose(fp);
     if( strcmp(input, password) == 0 ) {
       ret = 1; //パスワードが一致。
