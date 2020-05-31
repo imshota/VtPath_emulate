@@ -16,12 +16,6 @@ unsigned long syscall_count = 0; //シスコール数
 /*****************************************************************************
  *                             Analysis functions                            *
  *****************************************************************************/
-static void
-count_call(ADDRINT ip)
-{
-  calls[ip]++;
-  call_count++;
-}
 
 static void
 log_syscall(ADDRINT ip)
@@ -34,35 +28,26 @@ log_syscall(ADDRINT ip)
  *                         Instrumentation functions                         *
  *****************************************************************************/
 static void
-instrument_insn(INS ins, void *v)
-{
-  IMG img = IMG_FindByAddress(INS_Address(ins));
-  if(!IMG_Valid(img) || !IMG_IsMainExecutable(img)) return;
-
-  if(INS_IsCall(ins)) {
-    INS_InsertCall(
-      ins, IPOINT_BEFORE, (AFUNPTR)count_call, 
-      IARG_RETURN_IP,
-      IARG_END
-    );
-  }
-
-  if(INS_IsSyscall(ins)) {
-    INS_InsertCall(
-      ins, IPOINT_BEFORE, (AFUNPTR)count_call, 
-      IARG_INST_PTR,
-      IARG_END
-    );
-  }
-}
-
-static void
 parse_funcsyms(IMG img, void *v)
 {
   if(!IMG_Valid(img)) return;
   for(SEC sec = IMG_SecHead(img); SEC_Valid(sec); sec = SEC_Next(sec)) {
     for(RTN rtn = SEC_RtnHead(sec); RTN_Valid(rtn); rtn = RTN_Next(rtn)) {
       funcnames[RTN_Address(rtn)] = RTN_Name(rtn);
+    }
+  }
+}
+
+static void
+instrument_fun(RTN fun, void *v)
+{
+  for(INS ins = RTN_InsHead(fun); INS_Valid(ins); ins = INS_Next(ins)) {
+    if(INS_IsSyscall(ins)) {
+      INS_InsertCall(
+        ins, IPOINT_BEFORE, (AFUNPTR)count_call, 
+        IARG_INST_PTR,
+        IARG_END
+      );
     }
   }
 }
@@ -111,6 +96,7 @@ print_usage()
 int
 main(int argc, char *argv[])
 {
+  /* Pinの初期化 */
   PIN_InitSymbols();
   if(PIN_Init(argc,argv)) {
     print_usage();
@@ -119,7 +105,7 @@ main(int argc, char *argv[])
 
   /* 計装ルーチンの登録 */
   IMG_AddInstrumentFunction(parse_funcsyms, NULL);
-  INS_AddInstrumentFunction(instrument_insn, NULL); 
+  RTN_AddInstrumentFunction	(instrument_fun, NULL);
 
   PIN_AddFiniFunction(print_results, NULL);
   PIN_StartProgram();
