@@ -8,7 +8,7 @@
  - 今回は一つの分岐を探索する。
    - attacktest.cpp 28行目 if( mode == 0 )
    - エントリアドレスは 400926 ターゲットアドレスは 4009b7
-   - シンボリック設定ファイルは ここ
+   - シンボリック設定ファイルは [ここ](https://github.com/imshota/VtPath_emulate/blob/master/attack.map)
  
  ## Pinで実際に実行するファイルを検査し、仮想パスがあっているか判定する。
  - アルゴリズム
