@@ -1,27 +1,38 @@
 /*  Pin v3.6 */
 /*  VtPath emulater */
-/*  実際の実行で、仮装パスを作り、RAテーブル、VPテーブルにあるか調べる */
+/*  実際の実行で、仮想パスを作り、VPテーブルにあるか調べる */
 
 #include <stdio.h>
 #include <map>
+#include <iostream>
 #include <string>
+#include <stack>
 #include <asm-generic/unistd.h>
 #include "pin.H"
 
-std::map<ADDRINT, unsigned long> > calls;
 std::map<ADDRINT, std::string> funcnames;
+std::stack<ADDRINT> preVStack, VStack;
 
-unsigned long call_count    = 0; //呼び出し命令数
-unsigned long syscall_count = 0; //シスコール数
+unsigned long syscall_count = 0; //シスコールの数
+unsigned long func_count = 0; //関数の数
 /*****************************************************************************
  *                             Analysis functions                            *
  *****************************************************************************/
 
 static void
-log_syscall(ADDRINT ip)
+push_func_return(ADDRINT ip)
 {
-  //syscalls[PIN_GetSyscallNumber(ctxt, std)]++;
+  func_count++;
+  printf("tets func : %ld\n", func_count);
+  VStack.push(ip);
+}
+
+static void
+push_syscall(ADDRINT ip)
+{
   syscall_count++;
+  printf("tets syscall : %ld\n", syscall_count);
+  VStack.push(ip);
 }
 
 /*****************************************************************************
@@ -33,52 +44,94 @@ parse_funcsyms(IMG img, void *v)
   if(!IMG_Valid(img)) return;
   for(SEC sec = IMG_SecHead(img); SEC_Valid(sec); sec = SEC_Next(sec)) {
     for(RTN rtn = SEC_RtnHead(sec); RTN_Valid(rtn); rtn = RTN_Next(rtn)) {
-      funcnames[RTN_Address(rtn)] = RTN_Name(rtn);
+      //funcnames[RTN_Address(rtn)] = RTN_Name(rtn);
     }
   }
 }
 
 static void
-instrument_fun(RTN fun, void *v)
+instrument_fun(RTN rtn, void *v)
 {
-  for(INS ins = RTN_InsHead(fun); INS_Valid(ins); ins = INS_Next(ins)) {
+  RTN_Open(rtn);
+  IMG imgfunc;
+  //IMG imgins;
+  imgfunc = IMG_FindByAddress(RTN_Address(rtn));
+  if(!IMG_Valid(imgfunc) || !IMG_IsMainExecutable(imgfunc)) {
+    RTN_Close(rtn);
+    return;
+  }
+  funcnames[RTN_Address(rtn)] = RTN_Name(rtn);
+
+  RTN_InsertCall(
+    rtn, IPOINT_BEFORE, (AFUNPTR)push_func_return, 
+    IARG_RETURN_IP,
+    IARG_END
+  );
+
+  for(INS ins = RTN_InsHead(rtn); INS_Valid(ins); ins = INS_Next(ins)) {
+    //imgins = IMG_FindByAddress(INS_Address(ins));
+    //if(!IMG_Valid(imgins) || !IMG_IsMainExecutable(imgins)) continue;
     if(INS_IsSyscall(ins)) {
       INS_InsertCall(
-        ins, IPOINT_BEFORE, (AFUNPTR)count_call, 
+        ins, IPOINT_BEFORE, (AFUNPTR)push_syscall, 
         IARG_INST_PTR,
         IARG_END
       );
     }
+    createVtPath(preVStack, VStack);
+    preVStack = VStack;
+    VStack.pop();
   }
+  VStack.pop();
+  RTN_Close(rtn);
 }
 
 /*****************************************************************************
  *                               Other functions                             *
  *****************************************************************************/
+
+/* VtPathを作る関数 */
+static void
+createVtPath(std::stack<ADDRINT> preVStack,std::stack<ADDRINT> VStack) {
+  std::stack<ADDRINT> re_Stack, re_preVStack;
+  ADDRINT item;
+  /* それぞれスタックをひっくり返す */
+  while (!VStack.empty())
+  {
+    item = VStack.top();
+    re_VStack.push(item);
+    VStack.pop();
+  }
+  while (!preVStack.empty())
+  {
+    item = preVStack.top();
+    re_preVStack.push(item);
+    preVStack.pop();
+  }
+
+  /* a_s != b_sになるまで調べる */
+  while ( re_VStack.top() == re_preVStack.top() ||
+          !re_VStack.empty() || !re_preVStack.empty() ) {
+    re_VStack.pop();
+    re_preVStack.pop();
+  }
+
+}
+
+/* 結果（異常があるか）を出力。*/
 static void
 print_results(INT32 code, void *v)
 {
-  ADDRINT ip, target;
-  unsigned long count;
-  std::map<ADDRINT, std::map<ADDRINT, unsigned long> >::iterator i;
-  std::map<ADDRINT, unsigned long>::iterator j;
-
-  if(!calls.empty()) {
-    printf("\n******* FUNCTION CALLS *******\n");
-    printf("call : %ld", call_count);
-    for(i = calls.begin(); i != calls.end(); i++) {
-      target = i->first;
-      for(j = i->second.begin(); j != i->second.end(); j++) {
-        ip = j->first;
-        count = j->second;
-        printf("[%-30s] 0x%08jx <- 0x%08jx: %3lu (%0.2f%%)\n", 
-               funcnames[target].c_str(), target, ip, count, (double)count/call_count*100.0);
-      } 
-    }
-  }
+  printf("\n******* FUNCTION CALLS *******\n");
+  printf("function : %ld\n", func_count);
+  /*for (std::map<ADDRINT, std::string>::iterator i = funcnames.begin(); i != funcnames.end(); ++i) {
+        std::cout << i->first << " => " << i->second << std::endl;
+  }*/
 
   printf("\n******* SYSCALLS *******\n");
-  printf("syscall : %ld", syscall_count);
+  printf("syscall : %ld\n", syscall_count);
+
+  /* これの実行で出てきたVPathが、トレーニングで培ったVP集合に入っているかチェック */
 
 }
 
