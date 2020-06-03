@@ -5,10 +5,10 @@
    - ターゲット分岐アドレスにおいて、Tritonでもう一方の分岐にいく入力を見つける。
    - その入力をTritonのエミュレートで使い、もう一方の仮想パスを入手
  - 出来上がった仮想パスは、ファイルに出力する予定。
- - 今回は一つの分岐を探索する。
-   - attacktest.cpp 28行目 if( mode == 0 )
-   - エントリアドレスは 4008b6 ターゲットアドレスは 400938
-   - シンボリック設定ファイルは [ここ](https://github.com/imshota/VtPath_emulate/blob/master/attack.map)
+ - ~~今回は一つの分岐を探索する。~~
+   - ~~attacktest.cpp 28行目 if( mode == 0 )~~
+   - ~~エントリアドレスは 4008b6 ターゲットアドレスは 400938~~
+   - ~~シンボリック設定ファイルは [ここ]~~(https://github.com/imshota/VtPath_emulate/blob/master/attack.map)
  
  ## Pinで実際に実行するファイルを検査し、仮想パスがあっているか判定する。
  - アルゴリズム
