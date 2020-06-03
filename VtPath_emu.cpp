@@ -158,7 +158,7 @@ main(int argc, char *argv[])
 
   /* 計装ルーチンの登録 */
   IMG_AddInstrumentFunction(parse_funcsyms, NULL);
-  RTN_AddInstrumentFunction	(instrument_fun, NULL);
+  RTN_AddInstrumentFunction(instrument_fun, NULL);
 
   PIN_AddFiniFunction(print_results, NULL);
   PIN_StartProgram();
